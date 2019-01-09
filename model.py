@@ -3,7 +3,7 @@
 ## @Author: taoye01
 ## @File: feature.py
 ## @Created Time: Thu 27 Dec 2018 01:33:40 PM CST
-## @Description:在命令行中决定是否添加该特征，将特征作为模型参数，0.21067067067067066
+## @Description:含NGram(5000),字数,曜日(onehot)特征，0.21067067067067066
 import pdb
 import copy,os,sys,psutil
 import sys
