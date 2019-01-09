@@ -10,7 +10,6 @@ import sys
 reload(sys)
 sys.setdefaultencoding('utf8')
 import jieba
-import nltk
 import sklearn
 import pandas as pd
 import numpy as np
