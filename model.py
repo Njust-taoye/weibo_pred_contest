@@ -3,7 +3,7 @@
 ## @Author: taoye01
 ## @File: feature.py
 ## @Created Time: Thu 27 Dec 2018 01:33:40 PM CST
-## @Description:含特征:NGram,字数，曜日并做了onehot，模型指标结果为:0.21067067067067066
+## @Description:在命令行中决定是否添加该特征，将特征作为模型参数，0.21067067067067066
 import pdb
 import copy,os,sys,psutil
 import sys
@@ -105,12 +105,21 @@ def tune_model(train_X, train_Y):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--addWeekday", help="add weekday feature if True", type=str2bool, nargs='?', const=True, default=True)
+    parser.add_argument("--add_NGram_fea", help="add content NGram fea if True", type=str2bool, nargs="?", const=True, default=True)
     parser.add_argument("--NGram_num", help="NGram feature num", type=int)
     parser.add_argument("--tune_mode", help="tune_model if True", type=str2bool, nargs="?", const=True, default=False)
+    parser.add_argument("--add_words_num", help="add content words num feature if True", type=str2bool, nargs="?", const=True, default=True)
     args = parser.parse_args()
     print "是否增加weekday特征", args.addWeekday
+    print "是否增加unigram，bigram特征", args.add_NGram_fea
     print "文本特征维度", args.NGram_num
     print "是否在调参模式", args.tune_mode
+    print "是否增加文章字数特征", args.add_words_num
+    add_weekday_fea = args.addWeekday
+    add_NGram_fea = args.add_NGram_fea
+    NGram_fea_num = args.NGram_num
+    tune_mode = args.tune_mode
+    add_words_num_fea = args.add_words_num
     filename = 'weibo_train_data.txt'
     df = pd.read_csv(filename, sep='\t', header=None, names=['uid', 'mid', 'time', 'fc', 'cc', 'lc', 'content'])
     df.dropna(inplace=True)
@@ -119,8 +128,7 @@ if __name__ == '__main__':
     train_df = df[(df['time'] > "2015-06-25 00:00:00") & (df['time'] < "2015-07-01 00:00:00")]
     eval_df = df[(df['time'] >= "2015-07-29 00:00:00")]
     print "train and eval has splited!!!!"
-    weekday_fea = args.addWeekday
-    if weekday_fea:
+    if add_weekday_fea:
         train_df['weekday'] = train_df['time'].apply(lambda x: get_weekday(x))
         train_dayhot = onehot(list(train_df['weekday']), 7)
         train_dayhot = pd.DataFrame(train_dayhot, columns=range(7))
@@ -178,7 +186,6 @@ if __name__ == '__main__':
         rp.close()
 
     
-    NGram_fea_num = args.NGram_num
     vectorizer = CountVectorizer(min_df=1, max_features=NGram_fea_num, ngram_range=(1,2), analyzer = 'word', 
                                 stop_words = get_stop_words())
     train_nGram = vectorizer.fit_transform(data_list).toarray()
@@ -186,13 +193,15 @@ if __name__ == '__main__':
         with open(str(NGram_fea_num)+"words.txt", 'w') as fp:
             for word in vectorizer.get_feature_names():
                 fp.write(word+"\n")
-    #pdb.set_trace()
     train_words_num = pd.DataFrame(train_words_num, columns=['words_num'])
     train_nGram = pd.DataFrame(train_nGram, columns=range(NGram_fea_num))
     train_words_num.reset_index(drop=True, inplace=True)
     train_nGram.reset_index(drop=True, inplace=True)
     train_df.reset_index(drop=True, inplace=True)
-    train_df = pd.concat([train_df, train_words_num, train_nGram], axis=1)
+    if add_NGram_fea:
+        train_df = pd.concat([train_df, train_nGram], axis=1)
+    if add_words_num_fea:
+        train_df = pd.concat([train_df, train_words_num], axis=1)
     print "Get Train NGram feature!!!!"
     train_Y = train_df[['fc', 'cc', 'lc']]
     train_X = train_df.drop(['uid', 'mid', 'time', 'content', 'fc', 'cc', 'lc'], axis=1)
@@ -256,7 +265,10 @@ if __name__ == '__main__':
         eval_nGram.reset_index(drop=True, inplace=True)
         eval_df.reset_index(drop=True, inplace=True)
         print "Get eval NGram feature!!!!!"
-        eval_df = pd.concat([eval_df, eval_words_num, eval_nGram], axis=1) 
+        if add_NGram_fea:
+            eval_df = pd.concat([eval_df, eval_nGram], axis=1)
+        if add_words_num_fea:
+            eval_df = pd.concat([eval_df, eval_words_num], axis=1)
         eval_Y = np.array(eval_df[['fc', 'cc', 'lc']])
         eval_X = eval_df.drop(['uid', 'mid', 'time', 'content', 'fc', 'cc', 'lc'], axis=1)
         pred_Y = rf.predict(eval_X)
