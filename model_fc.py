@@ -3,7 +3,7 @@
 ## @Author: taoye01
 ## @File: feature.py
 ## @Created Time: Thu 27 Dec 2018 01:33:40 PM CST
-## @Description:含NGram(5000),字数,曜日(onehot),set(字数)特征，0.216726726727
+## @Description:单独对fc建模，含NGram(5000),字数，set(字数),曜日(onehot), 0.341409901746
 import pdb
 import copy,os,sys,psutil
 import sys
