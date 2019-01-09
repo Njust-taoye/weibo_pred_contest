@@ -3,7 +3,7 @@
 ## @Author: taoye01
 ## @File: feature.py
 ## @Created Time: Thu 27 Dec 2018 01:33:40 PM CST
-## @Description:单独对fc建模，含NGram(5000),字数，set(字数),曜日(onehot), 0.341409901746
+## @Description:单独对fc建模，含NGram(5000),字数，对set(字数)做离散化处理并做onehot,曜日(onehot), 0.338166555375
 import pdb
 import copy,os,sys,psutil
 import sys
@@ -70,6 +70,44 @@ def cal_score(real_fc, pred_fc):
     res = sum(count * dev)/ float(sum(count))
     return res
 
+def set_words_discretization(x):
+    if x >= 0 and x < 3:
+        return 1
+    elif x >=3 and x < 7:
+        return 2
+    elif x >= 7 and x < 11:
+        return 3
+    elif x >= 11 and x < 13:
+        return 4
+    elif x >= 13 and x < 16:
+        return 5
+    elif x >= 16 and x < 20:
+        return 6
+    elif x >= 20 and x < 23:
+        return 7
+    elif x >= 23 and x < 29:
+        return 8
+    elif x >= 29 and x < 40:
+        return 9
+    elif x >= 40 and x < 53:
+        return 10
+    elif x >= 53 and x < 61:
+        return 11
+    elif x >= 61 and x < 77:
+        return 12
+    elif x >= 77 and x < 82:
+        return 13
+    elif x >= 82 and x < 88:
+        return 14
+    elif x >= 88 and x < 94:
+        return 15
+    elif x >= 94 and x < 105:
+        return 16
+    elif x >= 105 and x < 103:
+        return 17
+    else:
+        return 18
+
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
         return True
@@ -104,6 +142,7 @@ if __name__ == '__main__':
     parser.add_argument("--tune_mode", help="tune_model if True", type=str2bool, nargs="?", const=True, default=False)
     parser.add_argument("--add_words_num", help="add content words num feature if True", type=str2bool, nargs="?", const=True, default=True)
     parser.add_argument("--add_set_words_num", help="add content set words num feature if True", type=str2bool, nargs="?", const=True, default=True)
+    parser.add_argument("--add_set_words_onehot", help="set words discretization and onehot if True", type=str2bool, nargs="?", const=True, default=False)
 
     args = parser.parse_args()
     print "是否增加weekday特征", args.addWeekday
@@ -112,12 +151,14 @@ if __name__ == '__main__':
     print "是否在调参模式", args.tune_mode
     print "是否增加文章字数特征", args.add_words_num
     print "是否增加set文章字数特征", args.add_set_words_num
+    print "是否对set_words特征做离散化并做onehot", args.add_set_words_onehot
     add_weekday_fea = args.addWeekday
     add_NGram_fea = args.add_NGram_fea
     NGram_fea_num = args.NGram_num
     tune_mode = args.tune_mode
     add_words_num_fea = args.add_words_num
     add_set_words_num_fea = args.add_set_words_num
+    add_set_words_onehot_fea = args.add_set_words_onehot
     filename = 'weibo_train_data.txt'
     df = pd.read_csv(filename, sep='\t', header=None, names=['uid', 'mid', 'time', 'fc', 'cc', 'lc', 'content'])
     df.dropna(inplace=True)
@@ -210,6 +251,10 @@ if __name__ == '__main__':
         print "has added words_num features!!!!"
     if add_set_words_num_fea:
         train_set_words_num = pd.DataFrame(train_set_words_num, columns=['set_words_num'])
+        if add_set_words_onehot_fea:
+            train_set_words_num['set_words_num'] = train_set_words_num['set_words_num'].apply(lambda x: set_words_discretization(x))
+            train_set_words_onehot = onehot(list(train_set_words_num['set_words_num']), len(set(train_set_words_num['set_words_num'])))
+            train_set_words_num = pd.DataFrame(train_set_words_onehot, columns=range(len(set(train_set_words_num['set_words_num']))))
         train_set_words_num.reset_index(inplace=True, drop=True)
         train_df.reset_index(inplace=True, drop=True)
         train_df = pd.concat([train_df, train_set_words_num], axis=1)
@@ -287,6 +332,10 @@ if __name__ == '__main__':
             eval_df = pd.concat([eval_df, eval_words_num], axis=1)
         if add_set_words_num_fea:
             eval_set_words_num = pd.DataFrame(eval_set_words_num, columns=['set_words_num'])
+            if add_set_words_onehot_fea:
+                eval_set_words_num['set_words_num'] = eval_set_words_num['set_words_num'].apply(lambda x: set_words_discretization(x))
+                eval_set_words_onehot = onehot(list(eval_set_words_num['set_words_num']), len(set(eval_set_words_num['set_words_num'])))
+                eval_set_words_num = pd.DataFrame(eval_set_words_onehot, columns=range(len(set(eval_set_words_num['set_words_num']))))
             eval_set_words_num.reset_index(inplace=True, drop=True)
             eval_df.reset_index(inplace=True, drop=True)
             eval_df = pd.concat([eval_df, eval_set_words_num], axis=1)
