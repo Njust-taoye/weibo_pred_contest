@@ -73,6 +73,8 @@ def cal_score(real_Y, pred_Y):
             return x
     count = np.array([func2(x) for x in count])
     res = sum(count * dev)/ float(sum(count))
+    if tune_mode:
+        return -res
     return res
 
 def str2bool(v):
@@ -85,15 +87,15 @@ def str2bool(v):
 
 def tune_model(train_X, train_Y):
     print ('获取内存占用率： '+(str)(psutil.virtual_memory().percent)+'%')
-    #tune_params = {'n_estimators': range(100, 500,100), 'max_features': ['auto', 'sqrt', 'log2'], 'max_depth': range(50, 500, 50), \
-    #        'min_samples_split': [2, 4, 6, 10, 20], 'min_samples_leaf': [1, 2, 3, 5, 10]} 
+    tune_params = {'n_estimators': range(100, 500,100), 'max_features': ['sqrt', 'log2'], 'max_depth': range(100, 500, 100), \
+            'min_samples_split': [2, 4, 6], 'min_samples_leaf': [2, 3,5]} 
     
-    tune_params = {'n_estimators': [100, 500], 'max_features': ['sqrt', 'log2'], 'max_depth': [100, 200]}
+    #tune_params = {'n_estimators': [500], 'max_features': ['sqrt'], 'max_depth': [100]}
     score = make_scorer(cal_score, greater_is_better=False)
-    gsearch = GridSearchCV(estimator = RandomForestRegressor(oob_score=False, random_state=10), param_grid = tune_params,\
+    gsearch = GridSearchCV(estimator = RandomForestRegressor(oob_score=False, random_state=10, n_jobs=1), param_grid = tune_params,\
                                                             scoring=score, cv=5)
     gsearch.fit(train_X, np.array(train_Y))
-    gsearch.grid_scores_, gsearch.best_params_, gsearch.best_score_
+    print gsearch.grid_scores_, gsearch.best_params_, gsearch.best_score_
     print ("Best score: %0.3f" % gsearch.best_score_)
     print ("Best paramters set:")
     best_paramters = gsearch.best_estimator_.get_params()
@@ -106,9 +108,11 @@ if __name__ == '__main__':
     parser.add_argument("--addWeekday", help="add weekday feature if True", type=str2bool, nargs='?', const=True, default=True)
     parser.add_argument("--add_NGram_fea", help="add content NGram fea if True", type=str2bool, nargs="?", const=True, default=True)
     parser.add_argument("--NGram_num", help="NGram feature num", type=int, default=5000)
-    parser.add_argument("--tune_mode", help="tune_model if True", type=str2bool, nargs="?", const=True, default=False)
+    parser.add_argument("--tune_mode", help="tune_model if True", type=str2bool, nargs="?", const=True, default=True)
     parser.add_argument("--add_words_num", help="add content words num feature if True", type=str2bool, nargs="?", const=True, default=True)
     parser.add_argument("--add_set_words_num", help="add content set words num feature if True", type=str2bool, nargs="?", const=True, default=True)
+    parser.add_argument("--add_usr_fea", help="add usr features if True", type=str2bool, nargs="?", const=True, default=True)
+
 
     args = parser.parse_args()
     print "是否增加weekday特征", args.addWeekday
@@ -117,19 +121,21 @@ if __name__ == '__main__':
     print "是否在调参模式", args.tune_mode
     print "是否增加文章字数特征", args.add_words_num
     print "是否增加set文章字数特征", args.add_set_words_num
+    print "是否增加用户特征", args.add_usr_fea
     add_weekday_fea = args.addWeekday
     add_NGram_fea = args.add_NGram_fea
     NGram_fea_num = args.NGram_num
     tune_mode = args.tune_mode
     add_words_num_fea = args.add_words_num
     add_set_words_num_fea = args.add_set_words_num
+    add_usr_fea = args.add_usr_fea
     filename = 'weibo_train_data.txt'
     df = pd.read_csv(filename, sep='\t', header=None, names=['uid', 'mid', 'time', 'fc', 'cc', 'lc', 'content'])
     df.dropna(inplace=True)
     #train_df = df[(df['time'] > "2015-03-10 00:00:00") & (df['time'] < "2015-07-01 00:00:00")]
     #eval_df = df[(df['time'] >= "2015-07-01 00:00:00")]
-    train_df = df[(df['time'] > "2015-06-25 00:00:00") & (df['time'] < "2015-07-01 00:00:00")]
-    eval_df = df[(df['time'] >= "2015-07-29 00:00:00")]
+    train_df = df[(df['time'] >= "2015-06-25 00:00:00") & (df['time'] < "2015-07-01 00:00:00")]
+    eval_df = df[(df['time'] >= "2015-07-01 00:00:00") & (df['time'] < "2015-07-03 00:00:00")]
     print "train and eval has splited!!!!"
     if add_weekday_fea:
         train_df['weekday'] = train_df['time'].apply(lambda x: get_weekday(x))
@@ -196,18 +202,6 @@ if __name__ == '__main__':
     
     vectorizer = CountVectorizer(min_df=1, max_features=NGram_fea_num, ngram_range=(1,2), analyzer = 'word', 
                                 stop_words = get_stop_words())
-    #train_nGram = vectorizer.fit_transform(data_list).toarray()
-    #if not os.path.exists(str(NGram_fea_num)+"words.txt"):
-    #    with open(str(NGram_fea_num)+"words.txt", 'w') as fp:
-    #        for word in vectorizer.get_feature_names():
-    #            fp.write(word+"\n")
-    #train_words_num = pd.DataFrame(train_words_num, columns=['words_num'])
-    #train_set_words_num = pd.DataFrame(train_set_words_num, columns=['set_words_num'])
-    #train_nGram = pd.DataFrame(train_nGram, columns=range(NGram_fea_num))
-    #train_words_num.reset_index(drop=True, inplace=True)
-    #train_set_words_num.reset_index(drop=True, inplace=True)
-    #train_nGram.reset_index(drop=True, inplace=True)
-    #train_df.reset_index(drop=True, inplace=True)
     if add_NGram_fea:
         train_nGram = vectorizer.fit_transform(data_list).toarray()
         if not os.path.exists(str(NGram_fea_num)+"words.txt"):
@@ -231,12 +225,18 @@ if __name__ == '__main__':
         train_df.reset_index(inplace=True, drop=True)
         train_df = pd.concat([train_df, train_set_words_num], axis=1)
         print "has added set_words_num features!!!!!"
+    if add_usr_fea:
+        usr_info = pd.read_csv('usr_tmp.csv', header=0, sep='\t')
+        usr_info.drop(['total_fc','total_cc','total_lc','total_words_num','total_set_words_num'], axis=1, inplace=True)
+        #usr_info = usr_info[['uid', 'usr_freq', 'mean_words_num', 'mean_set_words_num']]
+        train_df = pd.merge(train_df, usr_info, how='left',on='uid', suffixes=('','_usr'))
+        train_df.fillna(0,inplace=True)
     train_Y = train_df[['fc', 'cc', 'lc']]
     train_X = train_df.drop(['uid', 'mid', 'time', 'content', 'fc', 'cc', 'lc'], axis=1)
     tune_mode = args.tune_mode
     if not tune_mode:
         print "model established!!!!!"
-        rf = RandomForestRegressor(oob_score=False, random_state=10)
+        rf = RandomForestRegressor(oob_score=False, random_state=10, n_jobs=3)
         #rf = RandomForestRegressor(n_estimators=500, max_features='log', max_depth=100, \
         #                            min_samples_split=4, min_samples_leaf=2)
         
@@ -291,15 +291,6 @@ if __name__ == '__main__':
                     eval_set_words_num.append(int(set_words_num))
                     line = erp.readline()
             erp.close()
-        #eval_nGram = vectorizer.transform(eval_data_list).toarray()
-        #eval_nGram = pd.DataFrame(eval_nGram, columns=range(NGram_fea_num))
-        #eval_words_num = pd.DataFrame(eval_words_num, columns=['words_num'])
-        #eval_set_words_num = pd.DataFrame(eval_set_words_num, columns=['set_words_num'])
-        #eval_words_num.reset_index(inplace=True, drop=True)
-        #eval_set_words_num.reset_index(inplace=True, drop=True)
-        #eval_nGram.reset_index(drop=True, inplace=True)
-        #eval_df.reset_index(drop=True, inplace=True)
-        #print "Get eval NGram feature!!!!!"
         if add_NGram_fea:
             eval_nGram = vectorizer.transform(eval_data_list).toarray()
             eval_nGram = pd.DataFrame(eval_nGram, columns=range(NGram_fea_num))
@@ -316,6 +307,13 @@ if __name__ == '__main__':
             eval_set_words_num.reset_index(inplace=True, drop=True)
             eval_df.reset_index(inplace=True, drop=True)
             eval_df = pd.concat([eval_df, eval_set_words_num], axis=1)
+        if add_usr_fea:
+            usr_info = pd.read_csv('usr_tmp.csv', header=0, sep='\t')
+            usr_info.drop(['total_fc','total_cc','total_lc','total_words_num','total_set_words_num'], axis=1, inplace=True)
+            #usr_info = usr_info[['uid', 'usr_freq', 'mean_words_num', 'mean_set_words_num']]
+            eval_df = pd.merge(eval_df, usr_info, how='left',on='uid', suffixes=('','_usr'))
+            eval_df.fillna(0,inplace=True)
+
         eval_Y = np.array(eval_df[['fc', 'cc', 'lc']])
         eval_X = eval_df.drop(['uid', 'mid', 'time', 'content', 'fc', 'cc', 'lc'], axis=1)
         pred_Y = rf.predict(eval_X)
